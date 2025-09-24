@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Document Q&A</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="file"], input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .answer {
+            background: #e8f4fd;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 RAG Document Q&A System</h1>
+        
+        <!-- Upload Section -->
+        <div class="section">
+            <h2>📁 Upload Document</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file">Select Document:</label>
+                    <input type="file" name="file" id="file" accept=".txt,.md" required>
+                </div>
+                <button type="submit">Upload Document</button>
+            </form>
+            <div id="uploadResult"></div>
+        </div>
+        
+        <!-- Ask Question Section -->
+        <div class="section">
+            <h2>❓ Ask Questions</h2>
+            <form id="askForm">
+                <div class="form-group">
+                    <label for="question">Your Question:</label>
+                    <textarea name="question" id="question" placeholder="Ask a question about your document..." required></textarea>
+                </div>
+                <button type="submit" id="askBtn" disabled>Ask Question</button>
+            </form>
+            <div id="askResult"></div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="section">
+            <h2>📋 How to Use</h2>
+            <ol>
+                <li><strong>Upload a document:</strong> Select a .txt or .md file and click "Upload Document"</li>
+                <li><strong>Wait for processing:</strong> The document will be processed automatically</li>
+                <li><strong>Ask questions:</strong> Once uploaded, you can ask questions about your document</li>
+                <li><strong>Submit question:</strong> Type your question and click "Ask Question"</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        let currentDatasetId = null;
+
+        // Handle upload form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await uploadFile();
+        });
+
+        // Handle ask form submission
+        document.getElementById('askForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await askQuestion();
+        });
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('file');
+            const resultDiv = document.getElementById('uploadResult');
+            const submitBtn = document.querySelector('#uploadForm button');
+            const askBtn = document.getElementById('askBtn');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error">Please select a file</div>';
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+            resultDiv.innerHTML = '<div class="loading">Uploading and processing document...</div>';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Store dataset ID for later use
+                    currentDatasetId = result.dataset_id;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Upload Successful!</strong><br>
+                            <strong>Message:</strong> ${result.message || 'File uploaded successfully'}<br>
+                            <small>You can now ask questions about your document!</small>
+                        </div>
+                    `;
+                    
+                    // Enable ask button
+                    askBtn.disabled = false;
+                    askBtn.textContent = 'Ask Question';
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Error: ${result.error || 'Upload failed'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Upload failed: ${error.message}</div>`;
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload Document';
+            }
+        }
+
+        async function askQuestion() {
+            const question = document.getElementById('question').value;
+            const resultDiv = document.getElementById('askResult');
+            const submitBtn = document.getElementById('askBtn');
+            
+            if (!currentDatasetId) {
+                resultDiv.innerHTML = '<div class="error">❌ Please upload a document first</div>';
+                return;
+            }
+
+            if (!question.trim()) {
+                resultDiv.innerHTML = '<div class="error">❌ Please enter a question</div>';
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Thinking...';
+            resultDiv.innerHTML = '<div class="loading">🤔 Processing your question...</div>';
+
+            try {
+                const requestData = {
+                    dataset_id: currentDatasetId,
+                    question: question
+                };
+                console.log('Sending request data:', requestData);  // Debug: Log what we're sending
+                
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="answer">
+                            <strong>💡 Answer:</strong><br>
+                            ${result.answer || 'No answer provided'}
+                        </div>
+                    `;
+                    // Clear the question input
+                    document.getElementById('question').value = '';
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Error: ${result.error || 'Failed to get answer'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Request failed: ${error.message}</div>`;
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Ask Question';
+            }
+        }
+    </script>
+</body>
+</html>

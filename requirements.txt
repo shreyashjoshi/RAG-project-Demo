@@ -1,0 +1,28 @@
+# Core Flask dependencies
+flask
+flask-cors
+
+# Environment and configuration
+python-dotenv
+
+# LangChain core and community packages
+langchain
+langchain-community
+langchain-openai
+
+# Vector database
+chromadb
+
+# OpenAI client and helpers
+openai
+tiktoken
+
+# Additional dependencies for app_1.py
+werkzeug  # For secure_filename and file handling
+"unstructured[md]"  # For parsing markdown files
+unstructured  # For parsing various document types
+sentence-transformers
+# Notes:
+# - chromadb may require additional native dependencies (onnxruntime) on some platforms.
+# - If you need support for parsing rich documents (PDF/Word/HTML), install unstructured extras.
+# - werkzeug is included for secure file handling in Flask applications

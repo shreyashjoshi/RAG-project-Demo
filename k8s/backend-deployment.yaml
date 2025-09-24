@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-backend
+  template:
+    metadata:
+      labels:
+        app: rag-backend
+    spec:
+      containers:
+        - name: rag-backend
+          image: python:3.11-slim
+          command: ["python", "backend.py"]
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OPENAI_API_KEY
+              value: "REPLACE_WITH_KEY"
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+              readOnly: false
+      volumes:
+        - name: app-code
+          hostPath:
+            path: /app
+            type: Directory

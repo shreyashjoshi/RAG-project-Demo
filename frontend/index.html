@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG Chat Upload Demo</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
+      .upload { margin-bottom: 1rem; }
+      .chat { border: 1px solid #ddd; padding: 1rem; height: 360px; overflow: auto; }
+      .message { margin: 0.5rem 0; }
+      .user { color: blue; }
+      .bot { color: green; }
+    </style>
+  </head>
+  <body>
+    <h1>RAG Chat Upload Demo</h1>
+  <div id="serverStatus" style="margin-bottom:1rem;color:#666"></div>
+
+    <div class="upload">
+      <h3>1) Upload a file (txt or md)</h3>
+      <input id="fileInput" type="file" accept=".txt,.md" />
+      <button id="uploadBtn">Upload</button>
+      <div id="uploadStatus"></div>
+    </div>
+
+    <div class="chat-area">
+      <h3>2) Chat with the uploaded content</h3>
+      <div class="chat" id="chat"></div>
+      <div style="margin-top: .5rem;">
+        <input id="questionInput" style="width: 70%" placeholder="Ask a question..." />
+        <button id="askBtn">Ask</button>
+      </div>
+    </div>
+
+    <script>
+      const uploadBtn = document.getElementById('uploadBtn');
+      const fileInput = document.getElementById('fileInput');
+      const uploadStatus = document.getElementById('uploadStatus');
+      const chatEl = document.getElementById('chat');
+      const questionInput = document.getElementById('questionInput');
+      const askBtn = document.getElementById('askBtn');
+
+      // Adjust this URL if your backend is hosted elsewhere
+      const API_BASE = '';
+      let datasetId = null;
+  const serverStatus = document.getElementById('serverStatus');
+
+      function appendMessage(text, cls) {
+        const div = document.createElement('div');
+        div.className = 'message ' + cls;
+        div.textContent = text;
+        chatEl.appendChild(div);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      uploadBtn.onclick = async () => {
+        const file = fileInput.files[0];
+        if (!file) { uploadStatus.textContent = 'Select a file first'; return; }
+        uploadBtn.disabled = true;
+        uploadStatus.textContent = 'Uploading...';
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const res = await fetch(API_BASE + '/upload', { method: 'POST', body: fd });
+          let j = null;
+          try { j = await res.json(); } catch (_) { /* non-JSON response */ }
+          if (res.ok) {
+            datasetId = j && j.dataset_id ? j.dataset_id : null;
+            uploadStatus.textContent = datasetId ? ('Uploaded. Dataset ID: ' + datasetId) : 'Uploaded.';
+          } else {
+            const details = j && (j.details || j.error) ? (j.details || j.error) : (j ? JSON.stringify(j) : res.statusText);
+            uploadStatus.textContent = 'Upload failed: ' + details;
+          }
+        } catch (e) {
+          uploadStatus.textContent = 'Upload error: ' + e.message;
+        } finally {
+          uploadBtn.disabled = false;
+        }
+      };
+
+      askBtn.onclick = async () => {
+        const q = questionInput.value.trim();
+        if (!q) return;
+        if (!datasetId) { appendMessage('Upload a file first.', 'user'); return; }
+        askBtn.disabled = true;
+        appendMessage('You: ' + q, 'user');
+        // Add a thinking message and keep a reference so we can remove it safely
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.className = 'message bot';
+        thinkingDiv.textContent = 'Thinking...';
+        chatEl.appendChild(thinkingDiv);
+        chatEl.scrollTop = chatEl.scrollHeight;
+        try {
+          const res = await fetch(API_BASE + '/ask', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ dataset_id: datasetId, question: q }) });
+          let j = null;
+          try { j = await res.json(); } catch (_) { /* non-JSON */ }
+          // Remove only the thinking message we added
+          thinkingDiv.remove();
+          if (res.ok) {
+            appendMessage('Bot: ' + (j && j.answer ? j.answer : ''), 'bot');
+          } else {
+            const details = j && (j.details || j.error) ? (j.details || j.error) : (j ? JSON.stringify(j) : res.statusText);
+            appendMessage('Error: ' + details, 'bot');
+          }
+        } catch (e) {
+          thinkingDiv.remove();
+          appendMessage('Network error: ' + e.message, 'bot');
+        } finally {
+          askBtn.disabled = false;
+        }
+      };
+
+      // Check server health on load and display status
+      async function checkHealth() {
+        try {
+          const res = await fetch(API_BASE + '/health');
+          const j = await res.json();
+          if (res.ok && j.openai_api_key_present) {
+            serverStatus.textContent = 'Server healthy; OpenAI API key present.';
+            serverStatus.style.color = 'green';
+          } else if (res.ok) {
+            serverStatus.textContent = 'Server running — OpenAI API key is NOT set.';
+            serverStatus.style.color = 'red';
+          } else {
+            serverStatus.textContent = 'Server health check failed.';
+            serverStatus.style.color = 'orange';
+          }
+        } catch (e) {
+          serverStatus.textContent = 'Cannot reach server: ' + e.message;
+          serverStatus.style.color = 'red';
+        }
+      }
+
+      // Run health check once on load
+      checkHealth();
+    </script>
+  </body>
+</html>
