@@ -46,6 +46,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DATA_PATH=/app/data/books
 
 WORKDIR /app
+RUN mkdir -p /app/data/books
 
 # Copy virtual environment and application code from builder stage
 COPY --from=builder /opt/venv /opt/venv
@@ -63,4 +64,5 @@ EXPOSE 5000
 
 # Start the application
 ENTRYPOINT ["python3", "app_1.py"]
+
 
