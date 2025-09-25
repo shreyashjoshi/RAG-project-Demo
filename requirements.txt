@@ -19,7 +19,7 @@ tiktoken
 
 # Additional dependencies for app_1.py
 werkzeug  # For secure_filename and file handling
-"unstructured[md]"  # For parsing markdown files
+unstructured[md]  # For parsing markdown files
 unstructured  # For parsing various document types
 sentence-transformers
 # Notes:
