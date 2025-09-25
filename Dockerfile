@@ -36,7 +36,7 @@ RUN find . -type f -name '*.pyc' -delete
 
 # Runtime Stage (Distroless) ------------------------------------------------
 # Using distroless python image (nonroot variant). Includes Python interpreter but no shell.
-FROM gcr.io/distroless/python3-debian12:nonroot
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -62,4 +62,5 @@ EXPOSE 5000
 # HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["/opt/venv/bin/python", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',5000)); s.close()"]
 
 # Start the application
-ENTRYPOINT ["/opt/venv/bin/python", "app_1.py"]
+ENTRYPOINT ["python3", "app_1.py"]
+
